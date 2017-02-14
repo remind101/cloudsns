@@ -10,7 +10,7 @@ STACK_NAME = "my-test-stack"
 session = boto3.Session(region_name="us-east-1")
 cfn = session.client("cloudformation")
 
-listener = CloudListener(session)
+listener = CloudListener("cloudSNSListener", session=session)
 listener.start()
 
 
@@ -30,27 +30,22 @@ def delete_stack():
         StackName=STACK_NAME,
     )
 
+
+def print_status(message):
+    print "Stack Status: %s" % message.status
+
+    if (message.status == "CREATE_COMPLETE" or
+            message.status == "DELETE_COMPLETE"):
+        return True
+
+    return False
+
 print "Creating stack."
 create_stack()
 
-complete = False
-
-while not complete:
-    messages = listener.get_messages()
-    for message in messages:
-        print "Stack status: %s" % message.status
-        if message.status == "CREATE_COMPLETE":
-            complete = True
-
+listener.poll(print_status)
 
 print "Deleting stack."
 delete_stack()
 
-complete = False
-
-while not complete:
-    messages = listener.get_messages()
-    for message in messages:
-        print "Stack status: %s" % message.status
-        if message.status == "DELETE_COMPLETE":
-            complete = True
+listener.poll(print_status)

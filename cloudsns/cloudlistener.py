@@ -2,14 +2,14 @@ import boto3
 from message import Message
 
 # Value Constants
-QUEUE_NAME = 'CloudSNSQueue'
 TOPIC_NAME = 'CloudSNSTopic'
 
 
 class CloudListener(object):
 
-    def __init__(self, session=None):
-        self.session = session or boto3.Session(region_name="us-east-1")
+    def __init__(self, queue_name, session=None):
+        self.session = session or boto3.Session()
+        self.queue_name = queue_name
 
     def create_policy(self):
         return """{
@@ -39,7 +39,7 @@ class CloudListener(object):
         self.sns_arn = topic["TopicArn"]
 
         queue = self.sqs.create_queue(
-            QueueName=QUEUE_NAME,
+            QueueName=self.queue_name,
             Attributes={"MessageRetentionPeriod": "60"}
         )
         self.sqs_url = queue["QueueUrl"]
@@ -70,6 +70,23 @@ class CloudListener(object):
             AttributeValue="true"
         )
 
+    def poll(self, user_fn):
+        completed = False
+
+        while not completed:
+            messages = self.get_messages()
+            for message in messages:
+
+                # Run the function and check status
+                completed = user_fn(message)
+                self.delete_message(message)
+
+    def delete_message(self, message):
+        self.sqs.delete_message(
+            QueueUrl=self.sqs_url,
+            ReceiptHandle=message.message["ReceiptHandle"]
+        )
+
     def get_messages(self):
         updates = self.sqs.receive_message(
             QueueUrl=self.sqs_url,
@@ -77,14 +94,7 @@ class CloudListener(object):
             WaitTimeSeconds=20
         )
 
-        res = []
-
         if "Messages" in updates:
-            for message in updates["Messages"]:
-                self.sqs.delete_message(
-                    QueueUrl=self.sqs_url,
-                    ReceiptHandle=message["ReceiptHandle"]
-                )
-                res.append(Message(message))
+            return [Message(m) for m in updates["Messages"]]
 
-        return res
+        return []

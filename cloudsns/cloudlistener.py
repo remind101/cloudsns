@@ -6,14 +6,10 @@ QUEUE_NAME = 'CloudSNSQueue'
 TOPIC_NAME = 'CloudSNSTopic'
 
 
-class CloudSNS(object):
+class CloudListener(object):
 
     def __init__(self, session=None):
-
-        if not session:
-            session = boto3.Session(region_name="us-east-1")
-
-        self.session = session
+        self.session = session or boto3.Session(region_name="us-east-1")
 
     def create_policy(self):
         return """{
@@ -54,8 +50,6 @@ class CloudSNS(object):
         )
         self.sqs_arn = attr["Attributes"]["QueueArn"]
 
-        print self.create_policy()
-
         self.sqs.set_queue_attributes(
             QueueUrl=self.sqs_url,
             Attributes={
@@ -92,7 +86,5 @@ class CloudSNS(object):
                     ReceiptHandle=message["ReceiptHandle"]
                 )
                 res.append(Message(message))
-
-        print "Able to return"
 
         return res

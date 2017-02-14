@@ -1,21 +1,21 @@
 import boto3
 import json
 import re
-from cloudsns import CloudSNS
+from cloudsns.cloudlistener import CloudListener
+import os
 
-session = boto3.Session(region_name="us-east-1")
-
-cfn = session.client("cloudformation")
-
+TEMPLATE_PATH = "cloudsns/integration_test/template.json"
 STACK_NAME = "my-test-stack"
 
-listener = CloudSNS(session)
+session = boto3.Session(region_name="us-east-1")
+cfn = session.client("cloudformation")
 
+listener = CloudListener(session)
 listener.start()
 
 
 def create_stack():
-    with open("template.json") as fd:
+    with open(os.path.abspath(TEMPLATE_PATH)) as fd:
         template = fd.read()
 
     cfn.create_stack(
@@ -38,8 +38,9 @@ complete = False
 while not complete:
     messages = listener.get_messages()
     for message in messages:
-        print message.reason
-        print message.status
+        print "Stack status: %s" % message.status
+        if message.status == "CREATE_COMPLETE":
+            complete = True
 
 
 print "Deleting stack."
@@ -50,5 +51,6 @@ complete = False
 while not complete:
     messages = listener.get_messages()
     for message in messages:
+        print "Stack status: %s" % message.status
         if message.status == "DELETE_COMPLETE":
             complete = True

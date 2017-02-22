@@ -1,11 +1,16 @@
 import re
 
 
-class Message():
+class Message(object):
 
-    def __init__(self, message):
-        self.message = message
-        self.parsed_message = self.parse_message(message)
+    def __init__(self, metadata, parent_queue):
+        self._metadata = metadata
+        self._parent_queue = parent_queue
+
+        parsed_message = self.parse_message(metadata)
+
+        for key, value in parsed_message.iteritems():
+            setattr(self, key, value)
 
     def parse_message(self, message):
         msg_re = re.compile("(?P<key>[^=]+)='(?P<value>[^']*)'\n")
@@ -13,10 +18,8 @@ class Message():
         data = dict(msg_re.findall(body))
         return data
 
-    @property
-    def status(self):
-        return self.parsed_message["ResourceStatus"]
-
-    @property
-    def reason(self):
-        return self.parsed_message['ResourceStatusReason']
+    def delete(self):
+        self._parent_queue.sqs.delete_message(
+            QueueUrl=self._parent_queue.QueueUrl,
+            ReceiptHandle=self._metadata["ReceiptHandle"]
+        )

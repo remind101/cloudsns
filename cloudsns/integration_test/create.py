@@ -66,7 +66,7 @@ while not completed:
         message.delete()
 
 print "*-----------------------------------*"
-print "Stack deletion with more granular support"
+print "Stack deletion with more granular control"
 delete_stack()
 completed = False
 while not completed:

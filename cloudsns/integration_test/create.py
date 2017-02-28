@@ -77,5 +77,6 @@ while not completed:
             completed = True
         message.delete()
 
+
 print "*-----------------------------------*"
 print "Demo completed succesfully!"

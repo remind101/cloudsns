@@ -1,8 +1,11 @@
 import boto3
 from message import Message
+import uuid
+import logging
 
 # Value Constants
 TOPIC_NAME = 'CloudSNSTopic'
+
 
 class NotInitialized(Exception):
 
@@ -42,7 +45,7 @@ class CloudListener(object):
             }""" % (self.QueueArn, self.TopicArn)
 
     def start(self):
-
+        logging.info('Creating cloudsns resources')
         self.sns = self.session.client("sns")
         self.sqs = self.session.client("sqs")
 
@@ -65,6 +68,7 @@ class CloudListener(object):
             AttributeName="RawMessageDelivery",
             AttributeValue="true"
         )
+        logging.info('Done creating cloudsns resources')
 
     @property
     def TopicArn(self):
@@ -81,8 +85,9 @@ class CloudListener(object):
         if not self.sqs or not self.sns:
             raise NotInitialized('QueueUrl')
         if not self._queueUrl:
+            prefix = str(uuid.uuid4())
             queue = self.sqs.create_queue(
-                QueueName=self.queue_name,
+                QueueName="%s_%s" % (self.queue_name, str(uuid.uuid4())),
                 Attributes={"MessageRetentionPeriod": "60"}
             )
             self._queueUrl = queue["QueueUrl"]
@@ -121,3 +126,31 @@ class CloudListener(object):
             return [Message(m, self) for m in updates["Messages"]]
 
         return []
+
+    def delete_messages(self, messages):
+        receipts = []
+        for m in messages:
+            unique_id = str(uuid.uuid4())
+            receipts.append({
+                'Id': unique_id,
+                'ReceiptHandle': m.ReceiptHandle
+            })
+
+        self.sqs.delete_message_batch(
+            QueueUrl=self.QueueUrl,
+            Entries=receipts
+        )
+
+    def purge(self):
+        self.sqs.purge_queue(QueueUrl=self.QueueUrl)
+
+    def close(self):
+        logging.info('Deleting cloudsns resources')
+        self.sqs.delete_queue(
+            QueueUrl=self.QueueUrl
+        )
+
+        self.sns.delete_topic(
+            TopicArn=self.TopicArn
+        )
+        logging.info('Done deleting cloudsns resources')

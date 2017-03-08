@@ -31,8 +31,9 @@ def delete_stack():
 
 
 def print_msg(message):
-    print "Stack Status: %s - %s" % (message.ResourceStatus,
-                                     message.EventId)
+    # print "Stack Status: %s - %s" % (message.ResourceStatus,
+    #                                  message.EventId)
+    print message.__dict__
 
 
 def run_once(end_status):

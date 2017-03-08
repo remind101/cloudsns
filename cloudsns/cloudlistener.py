@@ -18,11 +18,11 @@ class NotInitialized(Exception):
 
 class CloudListener(object):
 
-    def __init__(self, queue_name, session=None):
+    def __init__(self, queue_name, existing_topic_arn=None, session=None):
         self.session = session or boto3.Session()
         self.queue_name = queue_name
+        self._topicArn = existing_topic_arn
         self._queueUrl = None
-        self._topicArn = None
         self._queueArn = None
 
     def create_policy(self):
@@ -45,7 +45,7 @@ class CloudListener(object):
             }""" % (self.QueueArn, self.TopicArn)
 
     def start(self):
-        logging.info('Creating cloudsns resources')
+        logging.debug('Creating cloudsns resources')
         self.sns = self.session.client("sns")
         self.sqs = self.session.client("sqs")
 
@@ -68,7 +68,7 @@ class CloudListener(object):
             AttributeName="RawMessageDelivery",
             AttributeValue="true"
         )
-        logging.info('Done creating cloudsns resources')
+        logging.debug('Done creating cloudsns resources')
 
     @property
     def TopicArn(self):
@@ -144,13 +144,16 @@ class CloudListener(object):
     def purge(self):
         self.sqs.purge_queue(QueueUrl=self.QueueUrl)
 
-    def close(self):
-        logging.info('Deleting cloudsns resources')
+    def close(self, delete_topic=False):
+        logging.debug('Deleting cloudsns resources')
+
         self.sqs.delete_queue(
             QueueUrl=self.QueueUrl
         )
 
-        self.sns.delete_topic(
-            TopicArn=self.TopicArn
-        )
-        logging.info('Done deleting cloudsns resources')
+        if delete_topic:
+            self.sns.delete_topic(
+                TopicArn=self.TopicArn
+            )
+
+        logging.debug('Done deleting cloudsns resources')
